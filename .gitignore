@@ -4,4 +4,4 @@ venv/
 bot.log
 UberHelperBot/__pycache__/
 UberHelperBot/test.py
-
+.DS_Store
