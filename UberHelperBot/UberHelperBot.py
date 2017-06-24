@@ -67,6 +67,7 @@ def get_start_point(bot, update):
         print(user_rides)
     if check_endpoints(update.message.chat_id) is True:
         fixed = estimate_price(user_rides[update.message.chat_id])
+        del user_rides[update.message.chat_id]
         update.message.reply_text('Будет примерно {}'.format(fixed))
 
 
@@ -81,6 +82,7 @@ def get_end_point(bot, update):
         print(user_rides)
     if check_endpoints(update.message.chat_id) is True:
         fixed = estimate_price(user_rides[update.message.chat_id])
+        del user_rides[update.message.chat_id]
         update.message.reply_text('Будет примерно {}'.format(fixed))
 
 
