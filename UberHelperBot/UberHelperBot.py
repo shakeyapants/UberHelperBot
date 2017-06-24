@@ -1,9 +1,14 @@
 import api_keys as keys
 import logging
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 from uber_rides.session import Session
 from uber_rides.client import UberRidesClient
 import re
+
+
+# states
+START_LOCATION, END_LOCATION = range(2)
 
 # dictionary for separate rides for each user
 user_rides = {}
@@ -53,7 +58,31 @@ def get_help(bot, update):
 
 
 def greet_user(bot, update):
-    update.message.reply_text('Привет, {}'.format(get_user_name(update)))
+    location_keyboard = KeyboardButton(text="Отправить мое местоположение", request_location=True)
+    custom_keyboard = [[location_keyboard]]
+    update.message.reply_text(
+        'Привет, откуда едем?',
+        reply_markup=ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True))
+    return START_LOCATION
+
+
+def get_start_location(bot, update):
+    user_location = update.message.location
+    update.message.reply_text('Отлично, куда едем?')
+    dict_start_coordinates = user_rides.setdefault(update.message.chat_id, {'start': None})
+    dict_start_coordinates['start'] = [user_location['latitude'], user_location['longitude']]
+    return END_LOCATION
+
+
+def get_end_location(bot, update):
+    user_location = update.message.location
+    update.message.reply_text('Супер, сейчас посчитаю...')
+    dict_end_coordinates = user_rides.setdefault(update.message.chat_id, {'end': None})
+    dict_end_coordinates['end'] = [user_location['latitude'], user_location['longitude']]
+    if check_endpoints(update.message.chat_id) is True:
+        fixed = estimate_price(user_rides[update.message.chat_id])
+        del user_rides[update.message.chat_id]
+        update.message.reply_text('Будет примерно {}'.format(fixed))
 
 
 def get_start_point(bot, update):
@@ -64,7 +93,7 @@ def get_start_point(bot, update):
     else:
         dict_start_coordinates = user_rides.setdefault(update.message.chat_id, {'start': None})
         dict_start_coordinates['start'] = start_coordinates
-        print(user_rides)
+    print(user_rides)
     if check_endpoints(update.message.chat_id) is True:
         fixed = estimate_price(user_rides[update.message.chat_id])
         del user_rides[update.message.chat_id]
@@ -79,12 +108,17 @@ def get_end_point(bot, update):
     else:
         dict_end_coordinates = user_rides.setdefault(update.message.chat_id, {'end': None})
         dict_end_coordinates['end'] = end_coordinates
-        print(user_rides)
     if check_endpoints(update.message.chat_id) is True:
         fixed = estimate_price(user_rides[update.message.chat_id])
         del user_rides[update.message.chat_id]
         update.message.reply_text('Будет примерно {}'.format(fixed))
 
+
+def cancel(bot, update):
+    user = update.message.from_user
+    logger.info("User %s canceled the conversation." % user.first_name)
+    update.message.reply_text('Пока!')
+    return ConversationHandler.END
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO,
@@ -96,12 +130,23 @@ def main():
     updater = Updater(keys.TELEGRAM_TOKEN)
 
     dp = updater.dispatcher
-    dp.add_handler(CommandHandler('start', greet_user))
     dp.add_handler(CommandHandler('help', get_help))
     dp.add_handler(CommandHandler('от', get_start_point))
     dp.add_handler(CommandHandler('до', get_end_point))
     dp.add_handler(MessageHandler(Filters.text, msg))
 
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', greet_user)],
+
+        states={
+            START_LOCATION: [MessageHandler(Filters.location, get_start_location)],
+            END_LOCATION: [MessageHandler(Filters.location, get_end_location)]
+        },
+
+        fallbacks=[CommandHandler('cancel', cancel)]
+    )
+
+    dp.add_handler(conv_handler)
     updater.start_polling()
     updater.idle()
 
