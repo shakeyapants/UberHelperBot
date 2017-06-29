@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
+
 import api_keys as keys
 import logging
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 from uber_rides.session import Session
 from uber_rides.client import UberRidesClient
@@ -50,7 +52,7 @@ def estimate_price(coordinates):
 
 
 def msg(bot, update):
-    update.message.reply_text('Прости, пока я ничего не понимаю :(')
+    update.message.reply_text('Нажми /start для выбора начальной точки поездки')
 
 
 def get_help(bot, update):
@@ -82,24 +84,33 @@ def get_end_location(bot, update):
     fixed = estimate_price(user_rides[update.message.chat_id])
     update.message.reply_text('Будет примерно {}'.format(fixed))
     # del user_rides[update.message.chat_id]
-    return make_decision(bot, update)
+    return make_decision(bot, update), ConversationHandler.END
 
 
 def make_decision(bot, update):
-    keyboard = [[InlineKeyboardButton('Ок, еду', callback_data='ok')],
+    chat_id = update.message.chat_id
+    deep_link = 'https://m.uber.com/ul/?action=setPickup&client_id={client_id}&pickup[formatted_address]=start&pickup[latitude]=' \
+                '{start_latitude}&pickup[longitude]={start_longtitude}&dropoff[formatted_address]=end&dropoff[latitude]=' \
+                '{end_latitude}&dropoff[longitude]={end_longtitude}'.format(client_id=keys.UBER_CLIENT_ID,
+                                                                            start_latitude=user_rides[chat_id]['start'][0],
+                                                                            start_longtitude=
+                                                                            user_rides[chat_id]['start'][1],
+                                                                            end_latitude=user_rides[chat_id]['end'][0],
+                                                                            end_longtitude=user_rides[chat_id]['end'][1])
+    keyboard = [[InlineKeyboardButton('Ок, еду', callback_data='ok', url=deep_link)],
                 [InlineKeyboardButton('Когда будет дешевле?', callback_data='cheaper')],
                 [InlineKeyboardButton('Сообщай мне каждую минуту', callback_data='every_minute')]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Ну что?', reply_markup=reply_markup)
-    return ConversationHandler.END
 
 
 def button(bot, update):
     query = update.callback_query
+    # chat_id = update.callback_query.message.chat.id
 
     if query.data == 'ok':
-        bot.edit_message_text(text='Хорошего пути!',
+        bot.edit_message_text(text='<b>Хорошего пути!</b>',
                               chat_id=query.message.chat_id,
                               message_id=query.message.message_id)
     elif query.data == 'cheaper':
@@ -107,7 +118,7 @@ def button(bot, update):
         bot.edit_message_text(text='Сообщу, как подешевеет',
                               chat_id=query.message.chat_id,
                               message_id=query.message.message_id)
-    elif query.data == 'every minute':
+    elif query.data == 'every_minute':
         # call some function
         bot.edit_message_text(text='Для отмены пришли /cancel',
                               chat_id=query.message.chat_id,
@@ -161,7 +172,7 @@ def main():
     dp.add_handler(CommandHandler('help', get_help))
     dp.add_handler(CommandHandler('от', get_start_point))
     dp.add_handler(CommandHandler('до', get_end_point))
-    #dp.add_handler(MessageHandler(Filters.text, msg))
+    dp.add_handler(MessageHandler(Filters.text, msg))
     dp.add_handler(CallbackQueryHandler(button))
 
     conv_handler = ConversationHandler(
