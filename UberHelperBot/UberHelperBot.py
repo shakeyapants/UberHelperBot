@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
+
 import api_keys as keys
 import logging
-from telegram import ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
+from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 from uber_rides.session import Session
 from uber_rides.client import UberRidesClient
 import re
-
 
 # states
 START_LOCATION, END_LOCATION = range(2)
@@ -34,6 +35,12 @@ def check_endpoints(chat_id):
         return False
 
 
+# price every minute
+def reply_price_every_minute(bot, job):
+    fixed = estimate_price(user_rides[job.context])
+    bot.send_message(job.context, text=fixed)
+
+
 # approximate price from Uber
 def estimate_price(coordinates):
     response = client.get_price_estimates(
@@ -50,7 +57,16 @@ def estimate_price(coordinates):
 
 
 def msg(bot, update):
-    update.message.reply_text('Прости, пока я ничего не понимаю :(')
+    update.message.reply_text('Нажми /start для выбора начальной точки поездки')
+
+
+def stop_notification(bot, update):
+    try:
+        job = user_rides[update.message.chat_id]['job']
+        job.schedule_removal()
+    except KeyError:
+        pass
+    update.message.reply_text('Окей, больше не буду. Нажми /start для выбора начальной точки поездки')
 
 
 def get_help(bot, update):
@@ -79,46 +95,53 @@ def get_end_location(bot, update):
     update.message.reply_text('Супер, сейчас посчитаю...')
     dict_end_coordinates = user_rides.setdefault(update.message.chat_id, {'end': None})
     dict_end_coordinates['end'] = [user_location['latitude'], user_location['longitude']]
-    if check_endpoints(update.message.chat_id) is True:
-        fixed = estimate_price(user_rides[update.message.chat_id])
-        del user_rides[update.message.chat_id]
-        update.message.reply_text('Будет примерно {}'.format(fixed))
+    fixed = estimate_price(user_rides[update.message.chat_id])
+    update.message.reply_text('Будет примерно {}'.format(fixed))
+    return make_decision(bot, update)
 
 
-def get_start_point(bot, update):
-    user_text = update.message.text
-    start_coordinates = re.findall(pattern, user_text)
-    if not start_coordinates:
-        update.message.reply_text('Такого не бывает!')
-    else:
-        dict_start_coordinates = user_rides.setdefault(update.message.chat_id, {'start': None})
-        dict_start_coordinates['start'] = start_coordinates
-    print(user_rides)
-    if check_endpoints(update.message.chat_id) is True:
-        fixed = estimate_price(user_rides[update.message.chat_id])
-        del user_rides[update.message.chat_id]
-        update.message.reply_text('Будет примерно {}'.format(fixed))
+def make_decision(bot, update):
+    chat_id = update.message.chat_id
+    deep_link = 'https://m.uber.com/ul/?action=setPickup&client_id={client_id}&pickup[formatted_address]=' \
+                'start&pickup[latitude]={start_latitude}&pickup[longitude]={start_longtitude}&' \
+                'dropoff[formatted_address]=end&dropoff[latitude]={end_latitude}&' \
+                'dropoff[longitude]={end_longtitude}'.format(client_id=keys.UBER_CLIENT_ID,
+                                                             start_latitude=user_rides[chat_id]['start'][0],
+                                                             start_longtitude=user_rides[chat_id]['start'][1],
+                                                             end_latitude=user_rides[chat_id]['end'][0],
+                                                             end_longtitude=user_rides[chat_id]['end'][1])
+
+    keyboard = [[InlineKeyboardButton('Ок, еду', callback_data='ok', url=deep_link)],
+                [InlineKeyboardButton('Когда будет дешевле?', callback_data='cheaper')],
+                [InlineKeyboardButton('Сообщай мне каждую минуту', callback_data='every_minute')]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text('Ну что?', reply_markup=reply_markup)
+    return ConversationHandler.END
 
 
-def get_end_point(bot, update):
-    user_text = update.message.text
-    end_coordinates = re.findall(pattern, user_text)
-    if not end_coordinates:
-        update.message.reply_text('Такого не бывает!')
-    else:
-        dict_end_coordinates = user_rides.setdefault(update.message.chat_id, {'end': None})
-        dict_end_coordinates['end'] = end_coordinates
-    if check_endpoints(update.message.chat_id) is True:
-        fixed = estimate_price(user_rides[update.message.chat_id])
-        del user_rides[update.message.chat_id]
-        update.message.reply_text('Будет примерно {}'.format(fixed))
+def button(bot, update, job_queue):
+    query = update.callback_query
+    chat_id = update.callback_query.message.chat.id
+
+    if query.data == 'cheaper':
+        # call some function
+        bot.edit_message_text(text='Сообщу, как подешевеет',
+                              chat_id=query.message.chat_id,
+                              message_id=query.message.message_id)
+    elif query.data == 'every_minute':
+        bot.edit_message_text(text='Для отмены пришли /stop',
+                              chat_id=query.message.chat_id,
+                              message_id=query.message.message_id)
+
+        job = job_queue.run_repeating(reply_price_every_minute, 60, context=chat_id)
+        user_rides[chat_id].update({'job': job})
 
 
 def cancel(bot, update):
-    user = update.message.from_user
-    logger.info("User %s canceled the conversation." % user.first_name)
     update.message.reply_text('Пока!')
     return ConversationHandler.END
+
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO,
@@ -131,9 +154,9 @@ def main():
 
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('help', get_help))
-    dp.add_handler(CommandHandler('от', get_start_point))
-    dp.add_handler(CommandHandler('до', get_end_point))
+    dp.add_handler(CommandHandler('stop', stop_notification))
     dp.add_handler(MessageHandler(Filters.text, msg))
+    dp.add_handler(CallbackQueryHandler(button, pass_job_queue=True))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', greet_user)],
@@ -149,6 +172,7 @@ def main():
     dp.add_handler(conv_handler)
     updater.start_polling()
     updater.idle()
+
 
 if __name__ == '__main__':
     logging.info('Bot started')
