@@ -1,7 +1,7 @@
-.idea/
-UberHelperBot/api_keys.py
-venv/
+.*
+.*/
+env/
 bot.log
+UberHelperBot/api_keys.py
 UberHelperBot/__pycache__/
 UberHelperBot/test.py
-.DS_Store
