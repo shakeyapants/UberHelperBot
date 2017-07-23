@@ -8,6 +8,7 @@ from uber_rides.session import Session
 from uber_rides.client import UberRidesClient
 import datetime as dt
 from models import db_session, User, Request, Fare
+from utils import make_deep_link, estimate_price
 
 # states
 START_LOCATION, END_LOCATION = range(2)
@@ -29,14 +30,9 @@ def reply_price_every_minute(bot, job):
     db_session.add(fare)
     db_session.commit()
 
-    deep_link = 'https://m.uber.com/ul/?action=setPickup&client_id={client_id}&pickup[formatted_address]=' \
-                'start&pickup[latitude]={start_latitude}&pickup[longitude]={start_longitude}&' \
-                'dropoff[formatted_address]=end&dropoff[latitude]={end_latitude}&' \
-                'dropoff[longitude]={end_longitude}'.format(client_id=keys.UBER_CLIENT_ID,
-                                                            start_latitude=last_request.start_latitude,
-                                                            start_longitude=last_request.start_longitude,
-                                                            end_latitude=last_request.end_latitude,
-                                                            end_longitude=last_request.end_longitude)
+    deep_link = make_deep_link(last_request.start_latitude, last_request.start_longitude,
+                               last_request.end_latitude, last_request.end_longitude)
+
     # the program doesn't stop if the user press 'OK'
     keyboard = [[InlineKeyboardButton('Ок, еду', url=deep_link)],
                 [InlineKeyboardButton('Хватит', callback_data='stop')]]
@@ -62,14 +58,9 @@ def notify_cheaper(bot, cheap_notification):
 
     if fixed < min_price:
         cheap_notification.schedule_removal()
-        deep_link = 'https://m.uber.com/ul/?action=setPickup&client_id={client_id}&pickup[formatted_address]=' \
-                    'start&pickup[latitude]={start_latitude}&pickup[longitude]={start_longitude}&' \
-                    'dropoff[formatted_address]=end&dropoff[latitude]={end_latitude}&' \
-                    'dropoff[longitude]={end_longitude}'.format(client_id=keys.UBER_CLIENT_ID,
-                                                                start_latitude=last_request.start_latitude,
-                                                                start_longitude=last_request.start_longitude,
-                                                                end_latitude=last_request.end_latitude,
-                                                                end_longitude=last_request.end_longitude)
+        deep_link = make_deep_link(last_request.start_latitude, last_request.start_longitude,
+                                   last_request.end_latitude, last_request.end_longitude)
+
         keyboard = [[InlineKeyboardButton('Ок, еду', url=deep_link)],
                     [InlineKeyboardButton('Хочу еще дешевле!', callback_data='cheaper')],
                     [InlineKeyboardButton('Хватит', callback_data='stop')]]
@@ -78,39 +69,17 @@ def notify_cheaper(bot, cheap_notification):
         bot.send_message(chat_id=chat_id, text='Теперь {}'.format(fixed), reply_markup=reply_markup)
 
 
-# approximate price from Uber
-def estimate_price(start_lat, start_long, end_lat, end_long):
-    response = client.get_price_estimates(
-        start_latitude=start_lat,
-        start_longitude=start_long,
-        end_latitude=end_lat,
-        end_longitude=end_long,
-        seat_count=2
-    )
-
-    high = response.json.get('prices')[0]['high_estimate']
-    # this calculation is based on experience, not always correct
-    fixed = int(high + high / 100 * 13)
-    return fixed
-
-
 def msg(bot, update):
     update.message.reply_text('Нажми /start для выбора начальной точки поездки')
 
 
 def stop_notification(bot, update, chat_data):
-    if 'job' not in chat_data:
-        pass
-
-    else:
+    if 'job' in chat_data:
         job = chat_data['job']
         job.schedule_removal()
         del chat_data['job']
 
-    if 'cheap_notification' not in chat_data:
-        pass
-
-    else:
+    if 'cheap_notification' in chat_data:
         cheap_notification = chat_data['cheap_notification']
         cheap_notification.schedule_removal()
         del chat_data['cheap_notification']
@@ -176,14 +145,8 @@ def make_decision(bot, update):
     user = User.query.filter(User.chat_id == update.message.chat_id).first()
     last_request = user.get_last_request()
 
-    deep_link = 'https://m.uber.com/ul/?action=setPickup&client_id={client_id}&pickup[formatted_address]=' \
-                'start&pickup[latitude]={start_latitude}&pickup[longitude]={start_longitude}&' \
-                'dropoff[formatted_address]=end&dropoff[latitude]={end_latitude}&' \
-                'dropoff[longitude]={end_longitude}'.format(client_id=keys.UBER_CLIENT_ID,
-                                                            start_latitude=last_request.start_latitude,
-                                                            start_longitude=last_request.start_longitude,
-                                                            end_latitude=last_request.end_latitude,
-                                                            end_longitude=last_request.end_longitude)
+    deep_link = make_deep_link(last_request.start_latitude, last_request.start_longitude,
+                               last_request.end_latitude, last_request.end_longitude)
 
     keyboard = [[InlineKeyboardButton('Ок, еду', url=deep_link)],
                 [InlineKeyboardButton('Когда будет дешевле?', callback_data='cheaper')],

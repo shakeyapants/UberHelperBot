@@ -18,11 +18,15 @@ class User(Base):
     first_name = Column(String(50))
     last_name = Column(String(50))
     chat_id = Column(Integer)
+    uber_state = Column(String(70))
+    uber_credentials = Column(String)
 
-    def __init__(self, first_name=None, last_name=None, chat_id=None):
+    def __init__(self, first_name=None, last_name=None, chat_id=None, uber_state=None, uber_credentials=None):
         self.first_name = first_name
         self.last_name = last_name
         self.chat_id = chat_id
+        self.uber_state = uber_state
+        self.uber_credentials = uber_credentials
 
     def get_last_request(self):
         return Request.query.filter(Request.user_id == self.id).order_by(Request.id.desc()).first()
