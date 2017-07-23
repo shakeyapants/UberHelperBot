@@ -23,7 +23,7 @@ def reply_price_every_minute(bot, job):
     chat_id = job.context
     user = User.query.filter(User.chat_id == chat_id).first()
     last_request = user.get_last_request()
-    fixed = estimate_price(last_request.start_latitude, last_request.start_longitude,
+    fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
                            last_request.end_latitude, last_request.end_longitude)
 
     fare = Fare(fare=fixed, time=dt.datetime.now(), request_id=last_request.id)
@@ -49,7 +49,7 @@ def notify_cheaper(bot, cheap_notification):
     last_request = user.get_last_request()
     min_price_row = Fare.query.filter(Fare.request_id == last_request.id).order_by(Fare.fare).first()
     min_price = min_price_row.fare
-    fixed = estimate_price(last_request.start_latitude, last_request.start_longitude,
+    fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
                            last_request.end_latitude, last_request.end_longitude)
 
     fare = Fare(fare=fixed, time=dt.datetime.now(), request_id=last_request.id)
@@ -128,7 +128,7 @@ def get_end_location(bot, update, chat_data):
 
     last_request = user.get_last_request()
 
-    fixed = estimate_price(last_request.start_latitude, last_request.start_longitude,
+    fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
                            last_request.end_latitude, last_request.end_longitude)
 
     chat_data['fare'] = fixed

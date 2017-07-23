@@ -1,3 +1,6 @@
+import api_keys as keys
+
+
 # generate deep link
 def make_deep_link(start_latitude, start_longitude, end_latitude, end_longitude):
     deep_link = 'https://m.uber.com/ul/?action=setPickup&client_id={client_id}&pickup[formatted_address]=' \
@@ -12,7 +15,7 @@ def make_deep_link(start_latitude, start_longitude, end_latitude, end_longitude)
 
 
 # approximate price from Uber
-def estimate_price(start_lat, start_long, end_lat, end_long):
+def estimate_price(client, start_lat, start_long, end_lat, end_long):
     response = client.get_price_estimates(
         start_latitude=start_lat,
         start_longitude=start_long,
@@ -26,3 +29,17 @@ def estimate_price(start_lat, start_long, end_lat, end_long):
     fixed = int(high + high / 100 * 13)
     return fixed
 
+
+# real price from uber
+def get_real_price(client, product_id, start_lat, start_long, end_lat, end_long):
+    estimate = client.estimate_ride(
+        product_id=product_id,
+        start_latitude=start_lat,
+        start_longitude=start_long,
+        end_latitude=end_lat,
+        end_longitude=end_long,
+        seat_count=2
+    )
+
+    fare = int(estimate.json.get('fare')['value'])
+    return fare
