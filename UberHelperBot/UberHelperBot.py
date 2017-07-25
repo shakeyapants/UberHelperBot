@@ -265,7 +265,7 @@ def reply_sticker(bot, update):
 
 
 def main():
-    updater = Updater(keys.TEST_TELEGRAM_TOKEN)
+    updater = Updater(keys.TELEGRAM_TOKEN)
 
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('help', get_help))
