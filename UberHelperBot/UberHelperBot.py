@@ -1,21 +1,49 @@
 # -*- coding: utf-8 -*-
-
 import api_keys as keys
 import logging
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
-from uber_rides.session import Session
+from uber_rides.session import Session, OAuth2Credential
 from uber_rides.client import UberRidesClient
+from uber_rides.auth import AuthorizationCodeGrant
+import json
 import datetime as dt
+import urllib.parse as urlparse
 from models import db_session, User, Request, Fare
-from utils import make_deep_link, estimate_price
+from utils import make_deep_link, estimate_price, get_real_price
 
 # states
 START_LOCATION, END_LOCATION = range(2)
 
-# set uber session
-session = Session(server_token=keys.UBER_SERVER_TOKEN)
-client = UberRidesClient(session)
+
+# get price depending on authorization. If the user is authorized, the price will be precise, otherwise it's estimation
+def get_price_for_client(user, last_request):
+    if user.uber_credentials:
+        credential = user.uber_credentials
+        credential_dict = json.loads(credential)
+        session = Session(oauth2credential=OAuth2Credential(
+            client_id=credential_dict.get('client_id'),
+            access_token=credential_dict.get('access_token'),
+            expires_in_seconds=credential_dict.get('expires_in_seconds'),
+            scopes=credential_dict.get('scopes'),
+            grant_type=credential_dict.get('grant_type'),
+            redirect_url=credential_dict.get('redirect_url'),
+            client_secret=credential_dict.get('client_secret'),
+            refresh_token=credential_dict.get('refresh_token')))
+        client = UberRidesClient(session)
+
+        response = client.get_products(last_request.start_latitude, last_request.start_longitude)
+        products = response.json.get('products')
+        product_id = products[0].get('product_id')
+        fixed = get_real_price(client, product_id, last_request.start_latitude, last_request.start_longitude,
+                               last_request.end_latitude, last_request.end_longitude)
+
+    else:
+        session = Session(server_token=keys.UBER_SERVER_TOKEN)
+        client = UberRidesClient(session)
+        fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
+                               last_request.end_latitude, last_request.end_longitude)
+    return fixed
 
 
 # price every minute
@@ -23,8 +51,8 @@ def reply_price_every_minute(bot, job):
     chat_id = job.context
     user = User.query.filter(User.chat_id == chat_id).first()
     last_request = user.get_last_request()
-    fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
-                           last_request.end_latitude, last_request.end_longitude)
+
+    fixed = get_price_for_client(user, last_request)
 
     fare = Fare(fare=fixed, time=dt.datetime.now(), request_id=last_request.id)
     db_session.add(fare)
@@ -49,8 +77,8 @@ def notify_cheaper(bot, cheap_notification):
     last_request = user.get_last_request()
     min_price_row = Fare.query.filter(Fare.request_id == last_request.id).order_by(Fare.fare).first()
     min_price = min_price_row.fare
-    fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
-                           last_request.end_latitude, last_request.end_longitude)
+
+    fixed = get_price_for_client(user, last_request)
 
     fare = Fare(fare=fixed, time=dt.datetime.now(), request_id=last_request.id)
     db_session.add(fare)
@@ -92,10 +120,42 @@ def get_help(bot, update):
     update.message.reply_text('Нажми /start для выбора начальной точки поездки')
 
 
+def authorize(bot, update):
+    auth_flow = AuthorizationCodeGrant(
+        keys.UBER_CLIENT_ID,
+        {'request'},
+        keys.UBER_CLIENT_SECRET,
+        keys.UBER_REDIRECT_URL,
+    )
+    auth_url = auth_flow.get_authorization_url()
+    parsed_url = urlparse.urlparse(auth_url)
+    state = urlparse.parse_qs(parsed_url.query)['state'][0]
+
+    user = User.query.filter(User.chat_id == update.message.chat_id).first()
+    user.uber_state = state
+    db_session.commit()
+
+    keyboard = [[InlineKeyboardButton('Авторизоваться', url=auth_url)],
+                [InlineKeyboardButton('Готово', callback_data='auth_done')]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text('Нажми готово по завершении', reply_markup=reply_markup)
+
+
+def check_authorization(bot, chat_id):
+    user = User.query.filter(User.chat_id == chat_id).first()
+    if not user.uber_credentials:
+        bot.send_message(chat_id=chat_id, text='Что-то пошло не так, попробуй авторизоваться еще раз /auth или '
+                                               'отправь начальную точку поездки для примерной цены')
+    else:
+        bot.send_message(chat_id=chat_id,
+                         text='Авторизация прошла успешно. Выбери начальную точку поездки')
+
+
 def greet_user(bot, update):
     location_keyboard = KeyboardButton(text="Отправить мое местоположение", request_location=True)
     custom_keyboard = [[location_keyboard]]
-    update.message.reply_text('Привет, откуда едем?',
+    update.message.reply_text('Привет, откуда едем? Для точной цены надо авторизоваться /auth',
                               reply_markup=ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True))
     if not User.query.filter(User.chat_id == update.message.chat_id).first():
         user = User(update.message.chat.first_name, update.message.chat.last_name, update.message.chat_id)
@@ -127,13 +187,15 @@ def get_end_location(bot, update, chat_data):
     db_session.commit()
 
     last_request = user.get_last_request()
+    fixed = get_price_for_client(user, last_request)
 
-    fixed = estimate_price(client, last_request.start_latitude, last_request.start_longitude,
-                           last_request.end_latitude, last_request.end_longitude)
+    if user.uber_credentials:
+        update.message.reply_text('Будет {}'.format(fixed))
+    else:
+        update.message.reply_text('Будет примерно {}'.format(fixed))
 
     chat_data['fare'] = fixed
     chat_data['chat_id'] = update.message.chat_id
-    update.message.reply_text('Будет примерно {}'.format(fixed))
 
     fare = Fare(fare=fixed, time=dt.datetime.now(), request_id=last_request.id)
     db_session.add(fare)
@@ -180,6 +242,9 @@ def button(bot, update, job_queue, chat_data):
     elif query.data == 'stop':
         stop_notification(bot, update, chat_data)
 
+    elif query.data == 'auth_done':
+        check_authorization(bot, chat_id)
+
 
 def cancel(bot, update):
     update.message.reply_text('Пока!')
@@ -198,6 +263,7 @@ def main():
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('help', get_help))
     dp.add_handler(CommandHandler('stop', stop_notification, pass_chat_data=True))
+    dp.add_handler(CommandHandler('auth', authorize))
     dp.add_handler(MessageHandler(Filters.text, msg))
     dp.add_handler(CallbackQueryHandler(button, pass_job_queue=True, pass_chat_data=True))
 
