@@ -1,12 +1,8 @@
 from flask import Flask, request
 from uber_rides.auth import AuthorizationCodeGrant
-
+import json
 from models import db_session, User
 import api_keys as keys
-import json
-
-
-REDIRECT_URL = 'http://127.0.0.1:5000'
 
 app = Flask(__name__)
 
@@ -21,7 +17,7 @@ def authorize():
         keys.UBER_CLIENT_ID,
         {'request'},
         keys.UBER_CLIENT_SECRET,
-        REDIRECT_URL,
+        keys.UBER_REDIRECT_URL,
         state_token=state
     )
 
