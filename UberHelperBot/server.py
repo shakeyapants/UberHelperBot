@@ -40,5 +40,10 @@ def authorize():
     db_session.commit()
     return 'OK'
 
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return 'Здесь ничего нет ;)'
+
 if __name__ == '__main__':
     app.run()

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import api_keys as keys
 import logging
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
@@ -7,10 +8,11 @@ from uber_rides.session import Session, OAuth2Credential
 from uber_rides.client import UberRidesClient
 from uber_rides.auth import AuthorizationCodeGrant
 import json
+import random
 import datetime as dt
 import urllib.parse as urlparse
 from models import db_session, User, Request, Fare
-from utils import make_deep_link, estimate_price, get_real_price
+from utils import make_deep_link, estimate_price, get_real_price, tuple_of_stickers
 
 # states
 START_LOCATION, END_LOCATION = range(2)
@@ -257,14 +259,20 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     )
 
 
+def reply_sticker(bot, update):
+    random_sticker = random.choice(tuple_of_stickers)
+    bot.send_sticker(update.message.chat_id, random_sticker)
+
+
 def main():
-    updater = Updater(keys.TELEGRAM_TOKEN)
+    updater = Updater(keys.TEST_TELEGRAM_TOKEN)
 
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('help', get_help))
     dp.add_handler(CommandHandler('stop', stop_notification, pass_chat_data=True))
     dp.add_handler(CommandHandler('auth', authorize))
     dp.add_handler(MessageHandler(Filters.text, msg))
+    dp.add_handler(MessageHandler(Filters.sticker, reply_sticker))
     dp.add_handler(CallbackQueryHandler(button, pass_job_queue=True, pass_chat_data=True))
 
     conv_handler = ConversationHandler(

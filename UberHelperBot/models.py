@@ -2,9 +2,10 @@ from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+import api_keys as keys
 
 
-engine = create_engine('sqlite:///user_rides.sqlite')
+engine = create_engine(keys.DB_ADDRESS)
 
 db_session = scoped_session(sessionmaker(bind=engine))
 
