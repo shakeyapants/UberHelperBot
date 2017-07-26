@@ -10,52 +10,52 @@ Then the user can use a deep link to open Uber app and request a ride.
 ### Example
 
 First meeting with the bot
-![1](https://user-images.githubusercontent.com/24657053/28624307-6db0ca90-7221-11e7-8e28-e58a6f61ca23.png)
+![1](https://user-images.githubusercontent.com/24657053/28628032-26d503f6-722c-11e7-89fe-75658fcd2d71.png)
 
 You can send the bot the start point or authorize in Uber for precise fare
-![2](https://user-images.githubusercontent.com/24657053/28624342-89a7b92a-7221-11e7-9a3c-79d31b1be29c.png)
+![2](https://user-images.githubusercontent.com/24657053/28628037-26da3e7a-722c-11e7-8d8f-001b3ba75509.png)
 
 If you press /auth the inline keyboard appears and you should go to the provided link
-![3](https://user-images.githubusercontent.com/24657053/28624429-c7eb4616-7221-11e7-9503-02540efe27c3.png)
+![3](https://user-images.githubusercontent.com/24657053/28628033-26d57818-722c-11e7-8906-c7a27fa1f03c.png)
 
 Open the link for authorization
-![4](https://user-images.githubusercontent.com/24657053/28624441-d1b56c94-7221-11e7-9bda-aa4498cf2f56.png)
+![4](https://user-images.githubusercontent.com/24657053/28628034-26d5a4a0-722c-11e7-82eb-ebf0703756d2.png)
 
 If authorization was successful, you'll see OK
-![5](https://user-images.githubusercontent.com/24657053/28624459-dc949108-7221-11e7-83dd-327261073f3d.png)
+![5](https://user-images.githubusercontent.com/24657053/28628036-26d75aac-722c-11e7-996f-5d38ab43df96.png)
 
 Then go back to Telegram and press the second button, that you're done. You'll see that authorization was successful.
-![6](https://user-images.githubusercontent.com/24657053/28624472-e2bddbca-7221-11e7-921e-11918a6537c7.png)
+![6](https://user-images.githubusercontent.com/24657053/28628035-26d71e98-722c-11e7-9ce8-98a7d7710cd7.png)
 
 Then you can send your current location as the start point
-![7](https://user-images.githubusercontent.com/24657053/28624486-ee3ace90-7221-11e7-9569-d8b4dcc187b9.png)
+![7](https://user-images.githubusercontent.com/24657053/28628040-26f4ab7a-722c-11e7-9f31-32b6c1db22e2.png)
 
 Now send geolocation of the place you want to go
-![8](https://user-images.githubusercontent.com/24657053/28624493-f55e1704-7221-11e7-8524-4a5435f92814.png)
+![8](https://user-images.githubusercontent.com/24657053/28628039-26ef3424-722c-11e7-84d8-1631716b0c60.png)
 
 Here you see the price and you can decide: go, wait for a cheaper fare or get notifications every minute
-![9](https://user-images.githubusercontent.com/24657053/28624508-00c89c90-7222-11e7-8e94-240f51740345.png)
+![9](https://user-images.githubusercontent.com/24657053/28628038-26eed24a-722c-11e7-9798-711a94e1022d.png)
 
 I decided to wait for a cheaper fare and the bot will tell me when the fare is smaller or I can send /stop if I am no longer interested
-![10](https://user-images.githubusercontent.com/24657053/28624520-09f69970-7222-11e7-8cb4-13db174f538c.png)
+![10](https://user-images.githubusercontent.com/24657053/28628042-26f72a6c-722c-11e7-8e96-e4f8e6823da7.png)
 
 So I got it cheaper! But I want it to be even cheaper!
-![11](https://user-images.githubusercontent.com/24657053/28624530-119402a8-7222-11e7-8509-46faea5c3877.png)
+![11](https://user-images.githubusercontent.com/24657053/28628043-26f97eb6-722c-11e7-9ef2-b71bba652d19.png)
 
 The bot again will tell me when the fare will be smaller
-![12](https://user-images.githubusercontent.com/24657053/28624548-1b218aa2-7222-11e7-9165-21eff0824336.png)
+![12](https://user-images.githubusercontent.com/24657053/28628041-26f69e9e-722c-11e7-8966-5be3ea27f6ed.png)
 
 Yes! It's smaller again and now I want to go.
-![13](https://user-images.githubusercontent.com/24657053/28624555-22dddb7e-7222-11e7-821e-c4a2ac56bd1e.png)
+![13](https://user-images.githubusercontent.com/24657053/28628044-270867be-722c-11e7-8f43-c18573f72ea5.png)
 
 I press "Ok, go" and deep link to Uber app opens, I press "Open"
-![14](https://user-images.githubusercontent.com/24657053/28624570-2afd9ef2-7222-11e7-996a-20a4ec3ab9ea.png)
+![14](https://user-images.githubusercontent.com/24657053/28628045-270a96ce-722c-11e7-8a19-7e0bcb748107.png)
 
 I am in the Uber app and I only need to press "REQUEST UBERX" to request a ride
-![15](https://user-images.githubusercontent.com/24657053/28624584-347d5058-7222-11e7-9f60-2a5f3eb25e1a.png)
+![15](https://user-images.githubusercontent.com/24657053/28628046-2710d0ca-722c-11e7-94aa-8733ae174f71.png)
 
 If you want to start over, just send /start again
-![16](https://user-images.githubusercontent.com/24657053/28624592-3b333d4a-7222-11e7-96b6-5e12b54a5965.png)
+![16](https://user-images.githubusercontent.com/24657053/28628047-2718276c-722c-11e7-9609-3bf323a1a272.png)
 
 
 
