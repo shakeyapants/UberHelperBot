@@ -5,3 +5,9 @@ bot.log
 UberHelperBot/api_keys.py
 UberHelperBot/__pycache__/
 UberHelperBot/test.py
+UberHelperBot/test2.py
+UberHelperBot/test3.py
+UberHelperBot/UberHelperBot_2.py
+
+.DS_Store
+user_rides.sqlite
