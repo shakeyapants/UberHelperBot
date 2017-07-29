@@ -2,7 +2,8 @@
 
 import api_keys as keys
 import logging
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, \
+    ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 from uber_rides.session import Session, OAuth2Credential
 from uber_rides.client import UberRidesClient
@@ -156,7 +157,8 @@ def check_authorization(bot, chat_id):
 
 def greet_user(bot, update):
     location_keyboard = KeyboardButton(text="Отправить мое местоположение", request_location=True)
-    custom_keyboard = [[location_keyboard]]
+    custom_keyboard = [[location_keyboard],
+                       ['/start', '/cancel']]
     update.message.reply_text('Привет, откуда едем? Для точной цены надо авторизоваться /auth',
                               reply_markup=ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True))
     if not User.query.filter(User.chat_id == update.message.chat_id).first():
@@ -174,6 +176,7 @@ def get_start_location(bot, update):
                       user_id=user.id)
     db_session.add(request)
     db_session.commit()
+    ReplyKeyboardRemove()
     return END_LOCATION
 
 
@@ -249,7 +252,7 @@ def button(bot, update, job_queue, chat_data):
 
 
 def cancel(bot, update):
-    update.message.reply_text('Пока!')
+    update.message.reply_text('Пока! Нажми /start для начала новой поездки')
     return ConversationHandler.END
 
 
