@@ -77,7 +77,7 @@ If you want to start over, just send /start again
 
 ### Working with the code on your own
 ---------------------------------
-1. register your app in [Uber](https://developer.uber.com/)
+1. register your app in [Uber](https://developer.uber.com/). Provide 'request' scope.
 2. register a telegram bot – talk to @BotFather
 3. clone the repository
 4. create api_keys.py in innermost directory
