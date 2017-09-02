@@ -8,12 +8,13 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 from uber_rides.session import Session, OAuth2Credential
 from uber_rides.client import UberRidesClient
 from uber_rides.auth import AuthorizationCodeGrant
+from uber_rides.errors import HTTPError
 import json
 import random
 import datetime as dt
 import urllib.parse as urlparse
 from models import db_session, User, Request, Fare
-from utils import make_deep_link, estimate_price, get_real_price, tuple_of_stickers
+from utils import make_deep_link, estimate_price, get_real_price, update_access_token, tuple_of_stickers
 
 # states
 START_LOCATION, END_LOCATION = range(2)
@@ -24,7 +25,7 @@ def get_price_for_client(user, last_request):
     if user.uber_credentials:
         credential = user.uber_credentials
         credential_dict = json.loads(credential)
-        session = Session(oauth2credential=OAuth2Credential(
+        oauth2credential = OAuth2Credential(
             client_id=credential_dict.get('client_id'),
             access_token=credential_dict.get('access_token'),
             expires_in_seconds=credential_dict.get('expires_in_seconds'),
@@ -32,15 +33,39 @@ def get_price_for_client(user, last_request):
             grant_type=credential_dict.get('grant_type'),
             redirect_url=credential_dict.get('redirect_url'),
             client_secret=credential_dict.get('client_secret'),
-            refresh_token=credential_dict.get('refresh_token')))
+            refresh_token=credential_dict.get('refresh_token'))
+        session = Session(oauth2credential=oauth2credential)
         client = UberRidesClient(session)
+        try:
+            response = client.get_products(last_request.start_latitude, last_request.start_longitude)
+            products = response.json.get('products')
+            product_id = products[0].get('product_id')
+            fixed = get_real_price(client, product_id, last_request.start_latitude, last_request.start_longitude,
+                                   last_request.end_latitude, last_request.end_longitude)
+        except HTTPError as e:
+            if '401' in repr(e):
+                credential_dict = update_access_token(credential_dict)
+                user.uber_credentials = json.dumps(credential_dict)
+                db_session.commit()
+                oauth2credential = OAuth2Credential(
+                    client_id=credential_dict.get('client_id'),
+                    access_token=credential_dict.get('access_token'),
+                    expires_in_seconds=credential_dict.get('expires_in_seconds'),
+                    scopes=credential_dict.get('scopes'),
+                    grant_type=credential_dict.get('grant_type'),
+                    redirect_url=credential_dict.get('redirect_url'),
+                    client_secret=credential_dict.get('client_secret'),
+                    refresh_token=credential_dict.get('refresh_token'))
+                session = Session(oauth2credential=oauth2credential)
+                client = UberRidesClient(session)
 
-        response = client.get_products(last_request.start_latitude, last_request.start_longitude)
-        products = response.json.get('products')
-        product_id = products[0].get('product_id')
-        fixed = get_real_price(client, product_id, last_request.start_latitude, last_request.start_longitude,
-                               last_request.end_latitude, last_request.end_longitude)
-
+                response = client.get_products(last_request.start_latitude, last_request.start_longitude)
+                products = response.json.get('products')
+                product_id = products[0].get('product_id')
+                fixed = get_real_price(client, product_id, last_request.start_latitude, last_request.start_longitude,
+                                       last_request.end_latitude, last_request.end_longitude)
+            else:
+                raise e
     else:
         session = Session(server_token=keys.UBER_SERVER_TOKEN)
         client = UberRidesClient(session)

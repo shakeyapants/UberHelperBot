@@ -1,4 +1,5 @@
 import api_keys as keys
+import requests
 
 
 # generate deep link
@@ -45,6 +46,26 @@ def get_real_price(client, product_id, start_lat, start_long, end_lat, end_long)
     return fare
 
 
+def update_access_token(credential_dict):
+    data = {
+        'client_secret': credential_dict.get('client_secret'),
+        'client_id': credential_dict.get('client_id'),
+        'grant_type': 'refresh_token',
+        'refresh_token': credential_dict.get('refresh_token'),
+    }
+
+    response = requests.post('https://login.uber.com/oauth/v2/token', data=data)
+
+    updated_credentials = eval(response.text)
+    new_access_token = updated_credentials.get('access_token')
+    new_expires_in = updated_credentials.get('expires_in')
+
+    credential_dict['access_token'] = new_access_token
+    credential_dict['expires_in_seconds'] = new_expires_in
+
+    return credential_dict
+
+
 # some fun with stickers
 tuple_of_stickers = ('CAADAgADoQQAAvoLtgjKyWXmCJBFiQI', 'CAADAgADswQAAvoLtgjn1HatrplOYgI',
                      'CAADAgADKQQAAvoLtggbjYlD46d10wI', 'CAADAgADLQQAAvoLtghiigzVyvC9dQI',
@@ -61,3 +82,4 @@ tuple_of_stickers = ('CAADAgADoQQAAvoLtgjKyWXmCJBFiQI', 'CAADAgADswQAAvoLtgjn1Ha
                      'CAADAgADeAQAAvoLtgh9GkGIlCa-HwI', 'CAADAgADlQQAAvoLtgiJOGpG-9l3DwI',
                      'CAADAgADmQQAAvoLtghV1qTg8UrG1gI', 'CAADAgADrQQAAvoLtgiyhUZm6S9pEQI',
                      'CAADAgADfAQAAvoLtgiEKs3s50ngHAI', 'CAADAgADpwQAAvoLtgjV0bycBrY_dgI')
+

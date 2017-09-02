@@ -1,6 +1,7 @@
 .idea/
 UberHelperBot/api_keys.py
 venv/
+venv2/
 bot.log
 UberHelperBot/__pycache__/
 UberHelperBot/test.py
